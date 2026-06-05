@@ -10,7 +10,7 @@ npx skills add rayselfs/skills
 
 | Skill | Description |
 |-------|-------------|
-| [weekly-commit-report](./weekly-commit-report/) | Generate weekly work reports from GitHub or Azure DevOps commits. Outputs .pptx, Markdown, or HTML. |
+| [weekly-commit-report](./skills/weekly-commit-report/) | Generate weekly work reports from GitHub or Azure DevOps commits. Outputs .pptx, Markdown, or HTML. |
 
 ## Install individual skill
 
