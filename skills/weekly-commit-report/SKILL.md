@@ -56,7 +56,7 @@ digraph flow {
 az devops project list --org "$ORG" --output json | jq -r '.value[].name' | sort
 ```
 
-Ask: comma-separated list (e.g. `OPS,vad-ops`), or blank = all (warn: 100+ projects → 5–10 min)
+Ask: comma-separated list (e.g. `ProjectA,ProjectB`), or blank = all (warn: 100+ projects → 5–10 min)
 
 ## Step 2 — Fetch Commits → `/tmp/commits.json`
 
@@ -65,7 +65,7 @@ Ask: comma-separated list (e.g. `OPS,vad-ops`), or blank = all (warn: 100+ proje
 bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-github.sh
 
 # ADO — specific projects (recommended)
-bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-ado.sh "OPS,vad-ops"
+bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-ado.sh "ProjectA,ProjectB"
 
 # ADO — all projects
 bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-ado.sh
