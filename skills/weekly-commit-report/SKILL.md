@@ -1,6 +1,9 @@
 ---
 name: weekly-commit-report
 description: Use when creating a weekly work report from git commits. Applies to weekly standup prep, sprint retrospectives, manager updates, or "what did I work on this week".
+compatibility: Requires az CLI + azure-devops extension (ADO path), gh CLI (GitHub path), jq, Python 3.x. macOS and Linux supported.
+metadata:
+  author: rayselfs
 ---
 
 # Weekly Commit Report
