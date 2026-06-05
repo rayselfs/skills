@@ -11,14 +11,23 @@ Usage:
   # Modify existing template (uses {{PLACEHOLDER}} markers in slides)
   python pptx-generator.py --template template.pptx --input commits.json --summary summary.json --output report.pptx
 
+  # Specify week definition (default: mon-fri)
+  python pptx-generator.py ... --week-def mon-sun
+
 Template placeholders (add these text strings inside your .pptx):
   {{SUMMARY}}                    Executive summary paragraph
   {{WEEK}}                       Week number (e.g. 23)
   {{YEAR}}                       Year (e.g. 2025)
   {{STATS}}                      "N commits across N repos"
+  {{DATE_RANGE}}                 "Jun 02 – Jun 06, 2025"
   {{CATEGORY_Infrastructure}}    Narrative for category named "Infrastructure"
   {{CATEGORY_Features}}          Narrative for category named "Features"
   (any category name works — {{CATEGORY_{Name}}})
+
+NOTE on split-run placeholders:
+  PowerPoint sometimes splits a single placeholder like {{SUMMARY}} across
+  multiple runs (e.g. {{SUM and MARY}}). This script merges all runs in a
+  paragraph before checking for placeholders, so it handles this correctly.
 """
 
 import argparse
@@ -28,24 +37,34 @@ from datetime import date, timedelta
 from pathlib import Path
 
 
-def get_week_range():
+def get_week_range(week_def: str = "mon-fri"):
     today = date.today()
-    monday = today - timedelta(days=today.weekday())
-    sunday = monday + timedelta(days=6)
-    week_num = today.isocalendar()[1]
-    year = today.year
-    return monday, sunday, week_num, year
+    mon = today - timedelta(days=today.weekday())
+
+    if week_def == "mon-fri":
+        start, end = mon, mon + timedelta(days=4)
+    elif week_def == "mon-sun":
+        start, end = mon, mon + timedelta(days=6)
+    elif week_def == "last7":
+        end, start = today, today - timedelta(days=7)
+    else:
+        print(f"ERROR: unknown week_def '{week_def}'. Use mon-fri, mon-sun, or last7", file=sys.stderr)
+        sys.exit(1)
+
+    week_num = mon.isocalendar()[1]
+    year = mon.year
+    return start, end, week_num, year
 
 
-def build_replacements(summary_data: dict, stats: dict) -> dict:
+def build_replacements(summary_data: dict, stats: dict, week_def: str) -> dict:
     """Build the {{PLACEHOLDER}} → value mapping."""
-    monday, sunday, week_num, year = get_week_range()
+    start, end, week_num, year = get_week_range(week_def)
     replacements = {
         "SUMMARY": summary_data.get("executive_summary", ""),
         "WEEK": str(week_num),
         "YEAR": str(year),
         "STATS": f"{stats['total_commits']} commits across {stats['repos_touched']} repos",
-        "DATE_RANGE": f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}",
+        "DATE_RANGE": f"{start.strftime('%b %d')} – {end.strftime('%b %d, %Y')}",
     }
     for category, narrative in summary_data.get("categories", {}).items():
         key = f"CATEGORY_{category.replace(' ', '_')}"
@@ -53,35 +72,49 @@ def build_replacements(summary_data: dict, stats: dict) -> dict:
     return replacements
 
 
-def replace_in_run(run, replacements: dict):
-    """Replace all {{KEY}} occurrences in a single text run."""
-    text = run.text
+def replace_in_paragraph(para, replacements: dict):
+    """
+    Replace {{KEY}} placeholders in a paragraph, handling the case where
+    PowerPoint has split a single placeholder across multiple runs.
+
+    Strategy:
+    1. Collect the full text of all runs in the paragraph.
+    2. If any placeholder exists in the merged text, perform replacements.
+    3. Write the result back into runs[0], clear remaining runs.
+       Preserves the formatting (font, size, bold, etc.) of runs[0].
+    """
+    if not para.runs:
+        return
+
+    full_text = "".join(r.text for r in para.runs)
     changed = False
     for key, value in replacements.items():
         marker = f"{{{{{key}}}}}"
-        if marker in text:
-            text = text.replace(marker, value)
+        if marker in full_text:
+            full_text = full_text.replace(marker, value)
             changed = True
+
     if changed:
-        run.text = text
+        para.runs[0].text = full_text
+        for run in para.runs[1:]:
+            run.text = ""
 
 
 def apply_replacements_to_slide(slide, replacements: dict):
-    """Walk all text runs in a slide and apply replacements."""
+    """Walk all paragraphs in a slide and apply replacements."""
     for shape in slide.shapes:
         if not shape.has_text_frame:
             continue
         for para in shape.text_frame.paragraphs:
-            for run in para.runs:
-                replace_in_run(run, replacements)
+            replace_in_paragraph(para, replacements)
 
 
-def modify_template(template_path: str, output_path: str, summary_data: dict, stats: dict):
+def modify_template(template_path: str, output_path: str, summary_data: dict, stats: dict, week_def: str):
     """Open an existing .pptx and replace {{PLACEHOLDER}} markers throughout."""
     from pptx import Presentation
 
     prs = Presentation(template_path)
-    replacements = build_replacements(summary_data, stats)
+    replacements = build_replacements(summary_data, stats, week_def)
 
     for slide in prs.slides:
         apply_replacements_to_slide(slide, replacements)
@@ -90,13 +123,12 @@ def modify_template(template_path: str, output_path: str, summary_data: dict, st
     print(f"✓ Template modified → {output_path}")
 
 
-def create_from_scratch(output_path: str, summary_data: dict, stats: dict):
+def create_from_scratch(output_path: str, summary_data: dict, stats: dict, week_def: str):
     """Build a clean weekly report presentation from scratch."""
     from pptx import Presentation
-    from pptx.util import Inches, Pt
-    from pptx.dml.color import RGBColor
+    from pptx.util import Inches
 
-    monday, sunday, week_num, year = get_week_range()
+    start, end, week_num, year = get_week_range(week_def)
     prs = Presentation()
 
     # Slide dimensions: widescreen 16:9
@@ -105,13 +137,12 @@ def create_from_scratch(output_path: str, summary_data: dict, stats: dict):
 
     title_layout = prs.slide_layouts[0]   # Title Slide
     content_layout = prs.slide_layouts[1]  # Title and Content
-    blank_layout = prs.slide_layouts[6]    # Blank
 
     # --- Slide 1: Title ---
     slide = prs.slides.add_slide(title_layout)
     slide.shapes.title.text = f"Weekly Report — Week {week_num}, {year}"
     subtitle = slide.placeholders[1]
-    subtitle.text = f"{monday.strftime('%B %d')} – {sunday.strftime('%B %d, %Y')}"
+    subtitle.text = f"{start.strftime('%B %d')} – {end.strftime('%B %d, %Y')}"
 
     # --- Slide 2: Executive Summary ---
     slide = prs.slides.add_slide(content_layout)
@@ -137,7 +168,7 @@ def create_from_scratch(output_path: str, summary_data: dict, stats: dict):
         ("Total commits", str(stats["total_commits"])),
         ("Repos touched", str(stats["repos_touched"])),
         ("Week", f"W{week_num} / {year}"),
-        ("Period", f"{monday.strftime('%Y-%m-%d')} → {sunday.strftime('%Y-%m-%d')}"),
+        ("Period", f"{start.strftime('%Y-%m-%d')} → {end.strftime('%Y-%m-%d')}"),
     ]
     first = True
     for label, value in entries:
@@ -161,7 +192,14 @@ def main():
     )
     parser.add_argument("--output", required=True, help="Output .pptx file path")
     parser.add_argument(
-        "--template", help="Optional: existing .pptx template to modify instead of creating from scratch"
+        "--template",
+        help="Optional: existing .pptx template to modify instead of creating from scratch",
+    )
+    parser.add_argument(
+        "--week-def",
+        default="mon-fri",
+        choices=["mon-fri", "mon-sun", "last7"],
+        help="Week definition for date range (default: mon-fri)",
     )
     args = parser.parse_args()
 
@@ -178,7 +216,7 @@ def main():
         try:
             summary_data = json.loads(args.summary)
         except json.JSONDecodeError:
-            print(f"ERROR: --summary must be a valid file path or JSON string", file=sys.stderr)
+            print("ERROR: --summary must be a valid file path or JSON string", file=sys.stderr)
             sys.exit(1)
 
     # Compute stats
@@ -191,10 +229,12 @@ def main():
         "repos_touched": len(repos),
     }
 
+    week_def = args.week_def
+
     if args.template:
-        modify_template(args.template, args.output, summary_data, stats)
+        modify_template(args.template, args.output, summary_data, stats, week_def)
     else:
-        create_from_scratch(args.output, summary_data, stats)
+        create_from_scratch(args.output, summary_data, stats, week_def)
 
 
 if __name__ == "__main__":

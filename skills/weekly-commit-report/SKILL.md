@@ -56,6 +56,8 @@ digraph flow {
 
 3. **ADO only** — Which projects? (show list after auth)
 
+4. **PPTX output only** — Do you have an existing `.pptx` template with `{{PLACEHOLDER}}` markers, or should I generate from scratch?
+
 Do NOT assume. Do NOT skip this step.
 
 ## Step 1 — Auth
@@ -77,16 +79,20 @@ Ask: comma-separated list (e.g. `ProjectA,ProjectB`), or blank = all (warn: 100+
 
 ## Step 2 — Fetch Commits → `/tmp/commits.json`
 
+Pass the week definition from Step 0 as `$2` (GitHub) or `$2` (ADO).
+
 ```bash
-# GitHub
-bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-github.sh
+# GitHub — mon-fri / mon-sun / last7
+bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-github.sh mon-fri
 
 # ADO — specific projects (recommended)
-bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-ado.sh "ProjectA,ProjectB"
+bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-ado.sh "ProjectA,ProjectB" mon-fri
 
 # ADO — all projects
-bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-ado.sh
+bash ~/.agents/skills/weekly-commit-report/scripts/fetch-commits-ado.sh "" mon-fri
 ```
+
+Replace `mon-fri` with `mon-sun` or `last7` based on Step 0 answer.
 
 See `scripts/fetch-commits-github.sh` and `scripts/fetch-commits-ado.sh`.
 
@@ -174,7 +180,7 @@ See `scripts/pptx-generator.py`.
 | `az repos commits` not found | Use `az devops invoke --area git --resource commits` |
 | `pip install python-pptx` fails (PEP 668) | Use venv — see Step 4 |
 | GitHub misses org repos | Script enumerates `/user/orgs` → org repos automatically |
-| ADO empty results | Verify `searchCriteria.authorAlias` = exact ADO login email |
+| ADO empty results / wrong author | `searchCriteria.authorAlias` is **unreliable** — the API ignores it and returns all commits. The script already filters client-side on `author.email`. If results look wrong, confirm the user's ADO email with `az ad signed-in-user show --query userPrincipalName` |
 | Wrong `WEEK_START` day | `date -v-Mon` is macOS-only; Linux: `date -d "last Monday"` |
 | `fetch-commits-ado.sh` fails to detect ORG | `az devops configure --list` outputs INI, not JSON. Set `ORG` manually: `export ORG=https://dev.azure.com/<your-org>` |
 
