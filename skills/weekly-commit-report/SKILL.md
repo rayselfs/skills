@@ -44,9 +44,11 @@ digraph flow {
 ## Step 1 — Auth
 
 - GitHub: `gh auth status`
-- ADO: `az devops configure --list` — need org URL
+  **REQUIRED SUB-SKILL:** Load `gh-cli` (`github/awesome-copilot`) for GitHub CLI reference.
+  Install: `npx skills add github/awesome-copilot --skill gh-cli`
 
-**REQUIRED SUB-SKILL:** Load `azure-devops-cli` for ADO auth setup.
+- ADO: `az devops configure --list` — need org URL
+  **REQUIRED SUB-SKILL:** Load `azure-devops-cli` for ADO auth setup and query syntax.
 
 **ADO only — ask which projects to scan:**
 
