@@ -1,7 +1,6 @@
 ---
 name: weekly-commit-report
-description: Use when creating a weekly work report from git commits. Applies to weekly standup prep, sprint retrospectives, manager updates, or "what did I work on this week". Supports GitHub and Azure DevOps as commit sources.
-compatibility: Requires az CLI + azure-devops extension (ADO path), gh CLI (GitHub path), jq, Python 3.x. macOS and Linux supported.
+description: Use when creating a weekly work report from git commits. Applies to weekly standup prep, sprint retrospectives, manager updates, or "what did I work on this week".
 ---
 
 # Weekly Commit Report
@@ -41,6 +40,21 @@ digraph flow {
 }
 ```
 
+## Step 0 — Clarify Scope
+
+**Ask before doing anything:**
+
+1. **Week definition** — "這週" 是什麼意思？
+   - Mon–Sun (ISO week, most common)
+   - Mon–Fri (work week only)
+   - Last 7 days
+
+2. **Platform** — GitHub or Azure DevOps?
+
+3. **ADO only** — Which projects? (show list after auth)
+
+Do NOT assume. Do NOT skip this step.
+
 ## Step 1 — Auth
 
 - GitHub: `gh auth status`
@@ -75,7 +89,13 @@ See `scripts/fetch-commits-github.sh` and `scripts/fetch-commits-ado.sh`.
 
 ## Step 3 — Summarize → `/tmp/summary.json`
 
-Group commits by intent:
+Group commits by **intent/theme**, NOT by repository or project.
+
+**❌ WRONG — grouped by repo:**
+> "In repo `ops-helm`: updated chart version. In repo `vad-service`: fixed auth bug."
+
+**✅ CORRECT — grouped by theme:**
+> "Infrastructure: Upgraded Helm charts and standardized deployment configs across services. Fixes: Resolved auth token expiry issue and patched retry logic."
 
 | Group | Signals |
 |-------|---------|
@@ -97,6 +117,7 @@ Write `/tmp/summary.json`:
 ```
 
 **Do NOT** list commit SHAs or messages one-by-one.
+**Do NOT** use repo names as section headings.
 
 ## Step 4 — Generate Report
 
@@ -152,3 +173,13 @@ See `scripts/pptx-generator.py`.
 | GitHub misses org repos | Script enumerates `/user/orgs` → org repos automatically |
 | ADO empty results | Verify `searchCriteria.authorAlias` = exact ADO login email |
 | Wrong `WEEK_START` day | `date -v-Mon` is macOS-only; Linux: `date -d "last Monday"` |
+| `fetch-commits-ado.sh` fails to detect ORG | `az devops configure --list` outputs INI, not JSON. Set `ORG` manually: `export ORG=https://dev.azure.com/<your-org>` |
+
+## Agent Rationalizations to Reject
+
+| Rationalization | Counter |
+|-----------------|---------|
+| "I'll organize by repo — it's clearer" | Repos are implementation detail. Audience wants themes (Features, Fixes, Infra). |
+| "I know what 'this week' means, no need to ask" | Mon–Sun vs Mon–Fri vs last 7 days differ by 1–2 days of commits. Always ask. |
+| "I'll scan all projects to be thorough" | 100+ projects = 5–10 min scan. Always ask which projects first. |
+| "I'll list the commit messages so nothing is lost" | Commit messages are noise to managers. Write cohesive narrative only. |
