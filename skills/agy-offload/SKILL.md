@@ -1,6 +1,6 @@
 ---
 name: agy-offload
-description: Delegates token-heavy bulk reading and codebase analysis to the agy CLI (Gemini backend), preserving Claude subscription budget. Use when task involves 3+ files, 2+ modules, files > 300 lines, whole-project overview, architecture review, or keywords: analyze / investigate / look into / summarize / 調查 / 分析 / 看一下 / 幫我看看.
+description: "Delegates token-heavy bulk reading and codebase analysis to the agy CLI (Gemini backend), preserving Claude subscription budget. Use when task involves 3+ files, 2+ modules, files > 300 lines, whole-project overview, architecture review, or keywords: analyze / investigate / look into / summarize / 調查 / 分析 / 看一下 / 幫我看看."
 metadata:
   author: rayselfs
 ---
